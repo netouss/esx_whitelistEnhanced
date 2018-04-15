@@ -135,8 +135,7 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 	end
 
 	-- TEST IF PLAYER IS IN PRIORITY LIST
-	-- if((onlinePlayers >= PlayersToStartRocade or #PriorityList > 0)  and Vip == false) then
-	if false then
+	if((onlinePlayers >= PlayersToStartRocade or #PriorityList > 0)  and Vip == false) then
 		deferrals.defer()
 		local stopSystem = false
 		table.insert(playersWaiting, steamID)
