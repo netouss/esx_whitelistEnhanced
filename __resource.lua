@@ -1,8 +1,19 @@
-server_script {
+version '1.2.0'
+
+server_scripts {
+	'config.lua',
+	'@es_extended/locale.lua',
 	'@mysql-async/lib/MySQL.lua',
-	'whitelist_sv.lua'
+	'locales/en_US.lua',
+	'locales/fr_FR.lua',
+	'server/whitelist_sv.lua'
 }
 
-client_script 'whitelist_c.lua'
+client_scripts {
+	'client/whitelist_cl.lua'
+}
 
-version '1.0.1'
+dependencies {
+	'es_extended',
+	'mysql-async'
+}
