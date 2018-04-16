@@ -4,8 +4,8 @@ server_scripts {
 	'config.lua',
 	'@es_extended/locale.lua',
 	'@mysql-async/lib/MySQL.lua',
-	'locales/en_US.lua',
-	'locales/fr_FR.lua',
+	'locales/en.lua',
+	'locales/fr.lua',
 	'server/whitelist_sv.lua'
 }
 

@@ -1,4 +1,4 @@
-Locales['en_US'] = {
+Locales['en'] = {
     ["not_in_whitelist"] = "This server is using a whitelist. To talk about it, join us here : %s",
     ["missing_steam_id"] = "Unable to find your steamID",
     ["banned_from_server"] = "You are banned from this server",

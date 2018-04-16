@@ -1,6 +1,6 @@
 Config = {}
 
-Config.Locale = 'en_US'
+Config.Locale = 'en'
 
 Config.WaitingTime = 20
 Config.CommunityLink = "COMMUNITY_LINK"
