@@ -4,5 +4,4 @@ AddEventHandler("playerSpawned", function()
 		TriggerServerEvent("rocade:removePlayerToInConnect")
 		firstSpawn = true
 	end
-
 end)

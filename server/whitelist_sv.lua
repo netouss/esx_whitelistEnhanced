@@ -2,8 +2,7 @@ ESX = nil
 TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 
 local WhiteList = {}
-local PlayersOnlineBeforeAntiSpam = 0
-local PlayersToStartRocade = 1
+local PlayersToStartRocade = 24
 local PriorityList = {}
 local currentPriorityTime = 0
 local playersWaiting = {}
@@ -31,10 +30,9 @@ function loadWhiteList()
 					vip 			= whitelisted_users[i].vip == 1
 				})
 			end
-		end
+        end
 	)
 end
-
 
 AddEventHandler('playerDropped', function(reason)
 	local _source = source
@@ -45,18 +43,17 @@ AddEventHandler('playerDropped', function(reason)
 		local playerName = GetPlayerName(_source)
 		local isInPriorityList = false
 
-
 		for i = 1, #PriorityList, 1 do
 			if PriorityList[i] == steamID then
 				isInPriorityList = true
-				print("WHITELIST: " .. _("log_already_in_priority_queue", playerName, steamID))
+				dbg("WHITELIST: " .. _("log_already_in_priority_queue", playerName, steamID))
 				break
 			end
 		end
 
 		if not isInPriorityList then
 			table.insert(PriorityList, steamID)
-			print("WHITELIST: " .. _("log_added_to_priority_queue", playerName, steamID))
+			dbg("WHITELIST: " .. _("log_added_to_priority_queue", playerName, steamID))
 		end
 
 		local timeToWait = 2
@@ -66,15 +63,15 @@ AddEventHandler('playerDropped', function(reason)
 			Wait(1000)
 			currentPriorityTime = currentPriorityTime -1
 
-			print(currentPriorityTime)
+			dbg(currentPriorityTime)
 
-			print(#PriorityList)
+			dbg(#PriorityList)
 
 			if(i >= timeToWait) then
 				for i = 1, #PriorityList, 1 do
 					if PriorityList[i] == steamID then
 						table.remove(PriorityList, i)
-						print("WHITELIST: " .. _("log_removed_from_priority_queue", playerName, steamID))
+						dbg("WHITELIST: " .. _("log_removed_from_priority_queue", playerName, steamID))
 					end
 				end
 			end
@@ -88,29 +85,25 @@ AddEventHandler('playerDropped', function(reason)
 
 end)
 
-
-
 AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 	local _source = source
 	local steamID = GetPlayerIdentifiers(_source)[1] or false
 	local found = false
-	local banned = false
-	local isInPriorityList = false
 
-	print("WHITELIST: " .. _("log_trying_to_connect", playerName, steamID))
+	dbg("WHITELIST: " .. _("log_trying_to_connect", playerName, steamID))
 
 	-- TEST IF STEAM IS STARTED
 	if not steamID then
 		reason(_("missing_steam_id"))
 		deferrals.done(_("missing_steam_id"))
 		CancelEvent()
-		print("WHITELIST: " .. _("log_missing_steam_id", playerName))
+		dbg("WHITELIST: " .. _("log_missing_steam_id", playerName))
 	end
 
 	-- TEST IF PLAYER IS WHITELISTED AND BANNED
 	local timestamp = os.time()
 
-	local Vip = false
+	local isVip = false
 	for i=1, #WhiteList, 1 do
 		if WhiteList[i].identifier == steamID then
 			found = true
@@ -118,10 +111,10 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 				reason(_("banned_from_server"))
 				deferrals.done(_("banned_from_server"))
 				CancelEvent()
-				print("WHITELIST: " .. _("log_banned_from_server", playerName, steamID, WhiteList[i].ban_reason))
+				dbg("WHITELIST: " .. _("log_banned_from_server", playerName, steamID, WhiteList[i].ban_reason))
 			end
 
-			Vip = WhiteList[i].vip
+			isVip = WhiteList[i].vip
 			break
 		end
 	end
@@ -131,11 +124,11 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		reason(_("not_in_whitelist", Config.CommunityLink))
 		deferrals.done(_("not_in_whitelist", Config.CommunityLink))
 		CancelEvent()
-		print("WHITELIST: " .. _("log_not_in_whitelist", playerName, steamID))
+		dbg("WHITELIST: " .. _("log_not_in_whitelist", playerName, steamID))
 	end
 
 	-- TEST IF PLAYER IS IN PRIORITY LIST
-	if((onlinePlayers >= PlayersToStartRocade or #PriorityList > 0)  and Vip == false) then
+	if (onlinePlayers >= PlayersToStartRocade or #PriorityList > 0)  and not isVip then
 		deferrals.defer()
 		local stopSystem = false
 		table.insert(playersWaiting, steamID)
@@ -198,17 +191,17 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		deferrals.defer()
 
 		if(Vip) then
-			print("WHITELIST: " .. _("log_player_connected_as_vip", playerName))
+			dbg("WHITELIST: " .. _("log_player_connected_as_vip", playerName))
 		end
 
 		inConnection[_source] = true
 
-		print("WHITELIST: " .. _("log_started_anti_spam", playerName))
+		dbg("WHITELIST: " .. _("log_started_anti_spam", playerName))
 		for i = 1, Config.WaitingTime, 1 do
 			deferrals.update(_("anti_spam_message", Config.WaitingTime - i))
 			Citizen.Wait(1000)
 		end
-		print("WHITELIST: " .. _("log_stopped_anti_spam", playerName))
+		dbg("WHITELIST: " .. _("log_stopped_anti_spam", playerName))
 
 		deferrals.done() -- connect
 
@@ -216,14 +209,10 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 
 end)
 
-
-
 RegisterServerEvent("rocade:removePlayerToInConnect")
 AddEventHandler("rocade:removePlayerToInConnect", function()
 	table.remove(inConnection, source)
 end)
-
-
 
 function checkOnlinePlayers()
 	SetTimeout(10000, function()
@@ -259,6 +248,12 @@ function stringsplit(inputstr, sep)
 		i = i + 1
 	end
 	return t
+end
+
+function dbg(...)
+	if Config.Debug then
+		print(...)
+	end
 end
 
 TriggerEvent(
