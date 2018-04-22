@@ -46,14 +46,14 @@ AddEventHandler('playerDropped', function(reason)
 		for i = 1, #PriorityList, 1 do
 			if PriorityList[i] == steamID then
 				isInPriorityList = true
-				dbg("WHITELIST: " .. _("log_already_in_priority_queue", playerName, steamID))
+				ESX.Trace("WHITELIST: " .. _("log_already_in_priority_queue", playerName, steamID))
 				break
 			end
 		end
 
 		if not isInPriorityList then
 			table.insert(PriorityList, steamID)
-			dbg("WHITELIST: " .. _("log_added_to_priority_queue", playerName, steamID))
+			ESX.Trace("WHITELIST: " .. _("log_added_to_priority_queue", playerName, steamID))
 		end
 
 		local timeToWait = 2
@@ -63,15 +63,15 @@ AddEventHandler('playerDropped', function(reason)
 			Wait(1000)
 			currentPriorityTime = currentPriorityTime -1
 
-			dbg(currentPriorityTime)
+			ESX.Trace(currentPriorityTime)
 
-			dbg(#PriorityList)
+			ESX.Trace(#PriorityList)
 
 			if(i >= timeToWait) then
 				for i = 1, #PriorityList, 1 do
 					if PriorityList[i] == steamID then
 						table.remove(PriorityList, i)
-						dbg("WHITELIST: " .. _("log_removed_from_priority_queue", playerName, steamID))
+						ESX.Trace("WHITELIST: " .. _("log_removed_from_priority_queue", playerName, steamID))
 					end
 				end
 			end
@@ -90,14 +90,14 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 	local steamID = GetPlayerIdentifiers(_source)[1] or false
 	local found = false
 
-	dbg("WHITELIST: " .. _("log_trying_to_connect", playerName, steamID))
+	ESX.Trace("WHITELIST: " .. _("log_trying_to_connect", playerName, steamID))
 
 	-- TEST IF STEAM IS STARTED
 	if not steamID then
 		reason(_("missing_steam_id"))
 		deferrals.done(_("missing_steam_id"))
 		CancelEvent()
-		dbg("WHITELIST: " .. _("log_missing_steam_id", playerName))
+		ESX.Trace("WHITELIST: " .. _("log_missing_steam_id", playerName))
 	end
 
 	-- TEST IF PLAYER IS WHITELISTED AND BANNED
@@ -111,7 +111,7 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 				reason(_("banned_from_server"))
 				deferrals.done(_("banned_from_server"))
 				CancelEvent()
-				dbg("WHITELIST: " .. _("log_banned_from_server", playerName, steamID, WhiteList[i].ban_reason))
+				ESX.Trace("WHITELIST: " .. _("log_banned_from_server", playerName, steamID, WhiteList[i].ban_reason))
 			end
 
 			isVip = WhiteList[i].vip
@@ -124,7 +124,7 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		reason(_("not_in_whitelist", Config.CommunityLink))
 		deferrals.done(_("not_in_whitelist", Config.CommunityLink))
 		CancelEvent()
-		dbg("WHITELIST: " .. _("log_not_in_whitelist", playerName, steamID))
+		ESX.Trace("WHITELIST: " .. _("log_not_in_whitelist", playerName, steamID))
 	end
 
 	-- TEST IF PLAYER IS IN PRIORITY LIST
@@ -184,33 +184,31 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 					end
 				end
 			end
-
 		end
 	else
-
-		deferrals.defer()
-
 		if(Vip) then
-			dbg("WHITELIST: " .. _("log_player_connected_as_vip", playerName))
+			ESX.Trace("WHITELIST: " .. _("log_player_connected_as_vip", playerName))
 		end
 
 		inConnection[_source] = true
 
-		dbg("WHITELIST: " .. _("log_started_anti_spam", playerName))
-		for i = 1, Config.WaitingTime, 1 do
-			deferrals.update(_("anti_spam_message", Config.WaitingTime - i))
-			Citizen.Wait(1000)
+		if Config.EnableAntiSpam then
+			deferrals.defer()
+
+			ESX.Trace("WHITELIST: " .. _("log_started_anti_spam", playerName))
+			for i = 1, Config.WaitingTime, 1 do
+				deferrals.update(_("anti_spam_message", Config.WaitingTime - i))
+				Citizen.Wait(1000)
+			end
+			ESX.Trace("WHITELIST: " .. _("log_stopped_anti_spam", playerName))
+
+			deferrals.done() -- connect
 		end
-		dbg("WHITELIST: " .. _("log_stopped_anti_spam", playerName))
-
-		deferrals.done() -- connect
-
 	end
-
 end)
 
-RegisterServerEvent("rocade:removePlayerToInConnect")
-AddEventHandler("rocade:removePlayerToInConnect", function()
+RegisterServerEvent("esx_whitelistExtended:removePlayerToInConnect")
+AddEventHandler("esx_whitelistExtended:removePlayerToInConnect", function()
 	table.remove(inConnection, source)
 end)
 
@@ -237,25 +235,6 @@ end
 
 checkOnlinePlayers()
 
-function stringsplit(inputstr, sep)
-	if sep == nil then
-		sep = "%s"
-	end
-	local t = {}
-	local i = 1
-	for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-		t[i] = str
-		i = i + 1
-	end
-	return t
-end
-
-function dbg(...)
-	if Config.Debug then
-		print(...)
-	end
-end
-
 TriggerEvent(
 	'es:addGroupCommand',
 	Config.ReloadWhitelistCommand,
@@ -271,3 +250,16 @@ TriggerEvent(
 		help = _("reload_whitelist")
 	}
 )
+
+function stringsplit(inputstr, sep)
+	if sep == nil then
+		sep = "%s"
+	end
+	local t = {}
+	local i = 1
+	for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+		t[i] = str
+		i = i + 1
+	end
+	return t
+end
