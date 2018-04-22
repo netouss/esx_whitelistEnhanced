@@ -1,8 +1,7 @@
 local firstSpawn = false
 AddEventHandler("playerSpawned", function()
 	if(not firstSpawn) then
-		TriggerServerEvent("rocade:removePlayerToInConnect")
+		TriggerServerEvent("esx_whitelistExtended:removePlayerToInConnect")
 		firstSpawn = true
 	end
-
 end)
