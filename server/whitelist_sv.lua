@@ -22,12 +22,12 @@ function loadWhiteList()
 			WhiteList = {}
 			for i=1, #whitelisted_users, 1 do
 				table.insert(WhiteList, {
-					nom_rp 			= whitelisted_users[i].nom_rp,
-					identifier 		= string.lower(whitelisted_users[i].identifier),
-					last_connexion 	= whitelisted_users[i].last_connexion,
+					nom_rp			= whitelisted_users[i].nom_rp,
+					identifier		= string.lower(whitelisted_users[i].identifier),
+					last_connexion	= whitelisted_users[i].last_connexion,
 					ban_reason		= whitelisted_users[i].ban_reason,
-					ban_until 		= whitelisted_users[i].ban_until,
-					vip 			= whitelisted_users[i].vip == 1
+					ban_until		= whitelisted_users[i].ban_until,
+					vip				= whitelisted_users[i].vip == 1
 				})
 			end
         end
@@ -209,7 +209,9 @@ end)
 
 RegisterServerEvent("esx_whitelistExtended:removePlayerToInConnect")
 AddEventHandler("esx_whitelistExtended:removePlayerToInConnect", function()
-	table.remove(inConnection, source)
+	if source ~= nil then
+		table.remove(inConnection, source)
+	end
 end)
 
 function checkOnlinePlayers()
