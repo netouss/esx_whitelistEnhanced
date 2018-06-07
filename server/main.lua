@@ -1,7 +1,7 @@
 ESX = nil
 TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 
--- Internal variables
+-- Internal variables, do not modify
 local WhiteList = {}
 local PriorityList = {}
 local currentPriorityTime = 0
@@ -9,9 +9,20 @@ local playersWaiting = {}
 local onlinePlayers = 0
 local inConnection = {}
 local allowConnecting = false
+local hasSqlRun = false
 
-AddEventHandler('onMySQLReady', function ()
+AddEventHandler('onMySQLReady', function()
+	hasSqlRun = true
 	loadWhiteList()
+end)
+
+-- extremely useful when restarting script mid-game
+Citizen.CreateThread(function()
+	Citizen.Wait(15000) -- hopefully enough for connection to the SQL server
+
+	if not hasSqlRun then
+		loadWhiteList()
+	end
 end)
 
 function loadWhiteList()
@@ -20,7 +31,6 @@ function loadWhiteList()
 			WhiteList = {}
 			for i=1, #result, 1 do
 				table.insert(WhiteList, {
-					nom_rp			= result[i].nom_rp,
 					identifier		= result[i].identifier,
 					last_connection	= result[i].last_connexion,
 					ban_reason		= result[i].ban_reason,
@@ -37,7 +47,7 @@ AddEventHandler('playerDropped', function(reason)
 
 	if(reason ~= "Disconnected.") then
 
-		local steamID = GetPlayerIdentifiers(_source)[1]
+		local steamID = GetPlayerIdentifiers(_source)[1]7
 		local playerName = GetPlayerName(_source)
 		local isInPriorityList = false
 
@@ -238,10 +248,65 @@ checkOnlinePlayers()
 
 TriggerEvent('es:addGroupCommand', 'reloadwl', 'admin', function (source, args, user)
 	loadWhiteList()
-	TriggerClientEvent('chatMessage', source, "SYSTEM", {255, 0, 0}, _U("whitelist_reloaded"))
+	TriggerClientEvent('chat:addMessage', source, { args = { '^1SYSTEM', _U('whitelist_reloaded') } })
 end, function (source, args, user)
-	TriggerClientEvent('chatMessage', source, 'SYSTEM', { 255, 0, 0 }, 'Insufficienct permissions!')
+	TriggerClientEvent('chat:addMessage', source, { args = { '^1SYSTEM', 'Insufficienct permissions!' } })
 end, {help = _U("reload_whitelist")})
+
+TriggerEvent('es:addGroupCommand', 'addwl', 'admin', function (source, args, user)
+	if not args[1] or not args[2] then
+		TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'Invalid usage!')
+		return
+	end
+
+	if args[1] == 'hex' then
+		if string.len(args[2]) == 21 then
+			TriggerEvent('esx_whitelistExtended:whitelistUser', source, args[2])
+		else
+			TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'Invalid steam hex length!')
+		end
+	elseif args[1] == 'dec' then
+		if tonumber(args[2]) and string.len(args[2]) == 17 then
+			TriggerEvent('esx_whitelistExtended:whitelistUser', source, ConvertDecToHex(tonumber(args[2])))
+		else
+			TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'Invalid steam dec length!')
+		end
+	else
+		TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'Invalid usage, unknown numeral system!')
+	end
+end, function (source, args, user)
+	TriggerClientEvent('chat:addMessage', source, { args = { '^1SYSTEM', 'Insufficienct permissions!' } })
+end, {help = "Add a player to the whitelist", params = {{name = "numeral system", help = "accepted values are either DEC or HEX. If you want to whitelist a set of digits it's decimal."}, {name = "steam identifier", help = "the identifier, either a set of digits or a ready steam hex"}}})
+
+-- End game whitelisting
+AddEventHandler('esx_whitelistExtended:whitelistUser', function(source, identifier)
+	MySQL.Async.fetchAll('SELECT * FROM whitelist WHERE identifier=@identifier', {['@identifier'] = identifier}, function(result)
+		if result[1] ~= nil then
+			TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'The player is already whitelisted on this server!')
+		else
+			MySQL.Async.execute("INSERT INTO whitelist (identifier) VALUES (@identifier)", {['@identifier'] = identifier})
+			TriggerEvent('esx_whitelistExtended:sendMessage', source, 'Whitelist', 'The player has been whitelisted! Identifier: ' .. identifier)
+			loadWhiteList()
+		end
+	end)
+end)
+
+-- console / rcon can also utilize es:command events, but breaks since the source isn't a connected player, ending up in error messages
+AddEventHandler('esx_whitelistExtended:sendMessage', function(source, title, message)
+	if source ~= 0 then
+		TriggerClientEvent('chat:addMessage', source, { args = { title, message } })
+	else
+		print('esx_whitelistExtended: ' .. message)
+	end
+end)
+
+function ConvertDecToHex(dec)
+	dec = string.format("%x", dec * 256)
+	dec = dec:sub(1, -3)
+	dec = 'steam:1' .. dec
+
+	return dec
+end
 
 function stringsplit(inputstr, sep)
 	if sep == nil then
