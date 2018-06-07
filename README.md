@@ -19,6 +19,7 @@ git clone https://github.com/ESX-Org/esx_whitelistEnhanced [esx]/esx_whitelistEn
 
 ## Installation
 - Import `esx_whitelistEnhanced.sql` to your database
+- Disable the hardcap resource
 - Add this in your `server.cfg`:
 
 ```
