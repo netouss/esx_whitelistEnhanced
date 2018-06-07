@@ -17,6 +17,7 @@ git clone https://github.com/ESX-Org/esx_whitelistEnhanced [esx]/esx_whitelistEn
 - Download https://github.com/ESX-Org/esx_whitelistEnhanced/archive/master.zip
 - Put it in the `[esx]` directory
 
+## Installation
 - Import `esx_whitelistEnhanced.sql` to your database
 - Add this in your `server.cfg`:
 

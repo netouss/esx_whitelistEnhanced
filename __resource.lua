@@ -5,17 +5,15 @@ description 'ESX Whitelist Enhanced'
 version '1.3.0'
 
 server_scripts {
-	'@es_extended/locale.lua',
 	'@mysql-async/lib/MySQL.lua',
-	'config.lua',
+	'@es_extended/locale.lua',
 	'locales/en.lua',
 	'locales/fr.lua',
-	'server/whitelist_sv.lua'
+	'config.lua',
+	'server/main.lua'
 }
 
-client_scripts {
-	'client/whitelist_cl.lua'
-}
+client_script 'client/main.lua'
 
 dependencies {
 	'es_extended',
