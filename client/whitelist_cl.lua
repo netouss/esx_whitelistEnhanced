@@ -1,7 +1,3 @@
-local firstSpawn = false
-AddEventHandler("playerSpawned", function()
-	if(not firstSpawn) then
-		TriggerServerEvent("esx_whitelistExtended:removePlayerToInConnect")
-		firstSpawn = true
-	end
+AddEventHandler('esx:playerLoaded', function(xPlayer)
+	TriggerServerEvent('esx_whitelistExtended:removePlayerToInConnect')
 end)

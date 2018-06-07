@@ -15,22 +15,20 @@ AddEventHandler('onMySQLReady', function ()
 end)
 
 function loadWhiteList()
-	MySQL.Async.fetchAll(
-		'SELECT * FROM whitelist',
-		{},
+	MySQL.Async.fetchAll( 'SELECT * FROM whitelist', {},
 		function (whitelisted_users)
 			WhiteList = {}
 			for i=1, #whitelisted_users, 1 do
 				table.insert(WhiteList, {
 					nom_rp			= whitelisted_users[i].nom_rp,
 					identifier		= string.lower(whitelisted_users[i].identifier),
-					last_connexion	= whitelisted_users[i].last_connexion,
+					last_connection	= whitelisted_users[i].last_connexion,
 					ban_reason		= whitelisted_users[i].ban_reason,
 					ban_until		= whitelisted_users[i].ban_until,
 					vip				= whitelisted_users[i].vip == 1
 				})
 			end
-        end
+		end
 	)
 end
 
@@ -237,21 +235,13 @@ end
 
 checkOnlinePlayers()
 
-TriggerEvent(
-	'es:addGroupCommand',
-	Config.ReloadWhitelistCommand,
-	Config.ReloadWhitelistGroup,
+TriggerEvent('es:addGroupCommand', Config.ReloadWhitelistCommand, Config.ReloadWhitelistGroup,
 	function (source, args, user)
 		loadWhiteList()
 		TriggerClientEvent('chatMessage', source, "SYSTEM", {255, 0, 0}, _("whitelist_reloaded"))
-	end,
-	function (source, args, user)
+	end, function (source, args, user)
 		TriggerClientEvent('chatMessage', source, 'SYSTEM', { 255, 0, 0 }, 'Insufficienct permissions!')
-	end,
-	{
-		help = _("reload_whitelist")
-	}
-)
+end, {help = _("reload_whitelist")})
 
 function stringsplit(inputstr, sep)
 	if sep == nil then
