@@ -47,7 +47,7 @@ AddEventHandler('playerDropped', function(reason)
 
 	if(reason ~= "Disconnected.") then
 
-		local steamID = GetPlayerIdentifiers(_source)[1]7
+		local steamID = GetPlayerIdentifiers(_source)[1]
 		local playerName = GetPlayerName(_source)
 		local isInPriorityList = false
 
