@@ -10,18 +10,21 @@ local onlinePlayers = 0
 local inConnection = {}
 local allowConnecting = false
 local hasSqlRun = false
+local start = 0
 
 AddEventHandler('onMySQLReady', function()
 	hasSqlRun = true
 	loadWhiteList()
+	resetRocade()
 end)
 
 -- extremely useful when restarting script mid-game
 Citizen.CreateThread(function()
 	Citizen.Wait(15000) -- hopefully enough for connection to the SQL server
-
+	
 	if not hasSqlRun then
 		loadWhiteList()
+		resetRocade()
 	end
 end)
 
@@ -50,17 +53,12 @@ AddEventHandler('playerDropped', function(reason)
 		local steamID = GetPlayerIdentifiers(_source)[1]
 		local playerName = GetPlayerName(_source)
 		local isInPriorityList = false
-
-		for i = 1, #PriorityList, 1 do
-			if PriorityList[i] == steamID then
-				isInPriorityList = true
-				ESX.Trace("WHITELIST: " .. _U("log_already_in_priority_queue", playerName, steamID))
-				break
-			end
-		end
-
-		if not isInPriorityList then
-			table.insert(PriorityList, steamID)
+	
+		isInPriorityList = checkIsInPriorityList(steamID)
+		if isInPriorityList == true then
+			ESX.Trace("WHITELIST: " .. _U("log_already_in_priority_queue", playerName, steamID))
+		else
+			addToPriorityList(steamID)
 			ESX.Trace("WHITELIST: " .. _U("log_added_to_priority_queue", playerName, steamID))
 		end
 
@@ -76,30 +74,23 @@ AddEventHandler('playerDropped', function(reason)
 			ESX.Trace(#PriorityList)
 
 			if(i >= timeToWait) then
-				for i = 1, #PriorityList, 1 do
-					if PriorityList[i] == steamID then
-						table.remove(PriorityList, i)
-						ESX.Trace("WHITELIST: " .. _U("log_removed_from_priority_queue", playerName, steamID))
-					end
-				end
+				removeFromPriorityList(steamID)
+				ESX.Trace("WHITELIST: " .. _U("log_removed_from_priority_queue", playerName, steamID))
 			end
 		end
 
 	end
-
-	if(inConnection[_source] ~= nil) then
-		table.remove(inConnection, _source)
-	end
-
+	removeInConnection(steamID)
 end)
 
 AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 	local _source = source
 	local steamID = GetPlayerIdentifiers(_source)[1] or false
+	local playerName = GetPlayerName(_source)
 	local found = false
-
+	
 	ESX.Trace("WHITELIST: " .. _U("log_trying_to_connect", playerName, steamID))
-
+	
 	-- TEST IF STEAM IS STARTED
 	if not steamID then
 		reason(_U("missing_steam_id"))
@@ -107,10 +98,10 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		CancelEvent()
 		ESX.Trace("WHITELIST: " .. _U("log_missing_steam_id", playerName))
 	end
-
+	
 	-- TEST IF PLAYER IS WHITELISTED AND BANNED
 	local timestamp = os.time()
-
+	
 	local isVip = false
 	for i=1, #WhiteList, 1 do
 		if WhiteList[i].identifier == steamID then
@@ -121,12 +112,12 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 				CancelEvent()
 				ESX.Trace("WHITELIST: " .. _U("log_banned_from_server", playerName, steamID, WhiteList[i].ban_reason))
 			end
-
+			
 			isVip = WhiteList[i].vip
 			break
 		end
 	end
-
+	
 	-- player is not whitelisted
 	if not found then
 		reason(_U("not_in_whitelist", Config.CommunityLink))
@@ -134,62 +125,63 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		CancelEvent()
 		ESX.Trace("WHITELIST: " .. _U("log_not_in_whitelist", playerName, steamID))
 	end
-
+	
 	-- TEST IF PLAYER IS IN PRIORITY LIST
 	if (onlinePlayers >= Config.PlayersToStartRocade or #PriorityList > 0)  and not isVip then
 		deferrals.defer()
 		local stopSystem = false
-		table.insert(playersWaiting, steamID)
-
-
+		start = start + 1
+		setWaiting(steamID, playerName, start)
+		
 		while stopSystem == false do
-
-			local waitingPlayers = #playersWaiting
-			local firstIndex = -100
+			local waitingPlayers = getWaitingNumber()
+			playersWaiting = getWaiting()
 			for i,k in pairs(playersWaiting) do
-				if(firstIndex == -100) then
-					firstIndex = i
-				end
-
-				if(#PriorityList == 0) then
-
-					if(onlinePlayers < Config.PlayersToStartRocade and k == steamID and i == firstIndex) then
-						table.remove(playersWaiting, i)
-						inConnection[_source] = true
-
-						allowConnecting = false
-						stopSystem = true
-						deferrals.done() -- connect
+				if k.place ~= nil then 
+					PriorityList = getPriorityList()
+					if(#PriorityList == 0) then
+						--IF place dispo
+						if(onlinePlayers < Config.PlayersToStartRocade and k.identifier == steamID and k.place == 1) then
+							
+							removeWaiting(steamID)
+							setInConnection(steamID)
+							
+							allowConnecting = false
+							stopSystem = true
+							deferrals.done() -- connect
+						else
+							if(k.identifier == steamID) then
+								local currentPlace = k.place
+								deferrals.update(_U("waiting_queue_message", currentPlace, waitingPlayers))
+								Citizen.Wait(250)
+							end
+						end
 					else
-						if(k == steamID) then
-							local currentPlace = (i - firstIndex) + 1
-							deferrals.update(_U("waiting_queue_message", currentPlace, waitingPlayers))
+						local isIn = false
+						
+						for _,k in pairs(PriorityList) do
+							if k.identifier == steamID then
+								isIn = true
+								break
+							end
+						end
+						if(isIn) then
+							removeWaiting(steamID)
+							setInConnection(steamID)
+							
+							allowConnecting = false
+							stopSystem = true
+							deferrals.done() -- connect
+						else
+							local raw_minutes = currentPriorityTime/60
+							local minutes = stringsplit(raw_minutes, ".")[1]
+							local seconds = stringsplit(currentPriorityTime-(minutes*60), ".")[1]
+							deferrals.update(_U("waiting_free_priority_slots", #PriorityList, minutes, seconds))
 							Citizen.Wait(250)
 						end
 					end
-				else
-					local isIn = false
-
-					for _,k in pairs(PriorityList) do
-						if k == steamID then
-							isIn = true
-							break
-						end
-					end
-					if(isIn) then
-						table.remove(playersWaiting, i)
-						inConnection[_source] = true
-
-						allowConnecting = false
-						stopSystem = true
-						deferrals.done() -- connect
-					else
-						local raw_minutes = currentPriorityTime/60
-						local minutes = stringsplit(raw_minutes, ".")[1]
-						local seconds = stringsplit(currentPriorityTime-(minutes*60), ".")[1]
-						deferrals.update(_U("waiting_free_priority_slots", #PriorityList, minutes, seconds))
-						Citizen.Wait(250)
-					end
+				elseif k.waiting == 1 and k.place == nil then
+					CancelEvent()
 				end
 			end
 		end
@@ -197,19 +189,19 @@ AddEventHandler("playerConnecting", function(playerName, reason, deferrals)
 		if(isVip) then
 			ESX.Trace("WHITELIST: " .. _U("log_player_connected_as_vip", playerName))
 		end
-
-		inConnection[_source] = true
-
+		
+		setInConnection(steamID)
+		
 		if Config.EnableAntiSpam then
 			deferrals.defer()
-
+			
 			ESX.Trace("WHITELIST: " .. _U("log_started_anti_spam", playerName))
 			for i = 1, Config.WaitingTime, 1 do
 				deferrals.update(_U("anti_spam_message", Config.WaitingTime - i))
 				Citizen.Wait(1000)
 			end
 			ESX.Trace("WHITELIST: " .. _U("log_stopped_anti_spam", playerName))
-
+			
 		end
 		deferrals.done() -- connect
 	end
@@ -218,18 +210,19 @@ end)
 RegisterServerEvent("esx_whitelistExtended:removePlayerToInConnect")
 AddEventHandler("esx_whitelistExtended:removePlayerToInConnect", function()
 	local _source = source
-	if _source ~= nil then
-		table.remove(inConnection, _source)
-	end
+	local steamID = GetPlayerIdentifiers(_source)[1]
+	removeInConnection(steamID)
 end)
 
 function checkOnlinePlayers()
-	SetTimeout(10000, function()
+	SetTimeout(5000, function()
 		local xPlayers = ESX.GetPlayers()
-
+		inConnection = getInConnection()
+		PriorityList = getPriorityList()
+		playersWaiting = getWaiting()
 		onlinePlayers = #xPlayers + #inConnection
-
-
+		
+		
 		if(onlinePlayers >= Config.PlayersToStartRocade) then
 			if allowConnecting then
 				allowConnecting = false
@@ -239,12 +232,85 @@ function checkOnlinePlayers()
 				allowConnecting = true
 			end
 		end
-
 		checkOnlinePlayers()
 	end)
 end
 
 checkOnlinePlayers()
+
+function resetRocade()
+	MySQL.Sync.execute("DELETE FROM rocade")
+end
+
+function removeFromRocade(steamID)
+	MySQL.Sync.execute("DELETE FROM rocade WHERE identifier = @identifier",{['@identifier'] = steamID})
+end
+
+function getInConnection()
+	local items = {}
+	local data = MySQL.Sync.fetchAll("SELECT rocade.identifier, firstname, lastname FROM rocade INNER JOIN users ON users.identifier = rocade.identifier WHERE inconnection = 1")
+	for _,v in pairs(data) do
+		table.insert(items, {identifier = v.identifier, fullname = v.firstname .. " " .. v.lastname})
+	end
+	return items
+end
+
+function removeInConnection(steamID)
+	MySQL.Sync.execute("UPDATE rocade SET inconnection = 0 WHERE identifier = @identifier",{['@identifier'] = steamID})
+	MySQL.Sync.execute("UPDATE rocade SET place = NULL WHERE identifier = @identifier",{['@identifier'] = steamID})
+end
+
+function setInConnection(steamID)
+	MySQL.Sync.execute("UPDATE rocade SET inconnection = 1 WHERE identifier = @identifier",{['@identifier'] = steamID})
+	MySQL.Sync.execute("UPDATE rocade SET waiting = 0 WHERE identifier = @identifier",{['@identifier'] = steamID})
+end
+
+function getPriorityList()
+	local items = {}
+	local data = MySQL.Sync.fetchAll("SELECT rocade.identifier, firstname, lastname FROM rocade INNER JOIN users ON users.identifier = rocade.identifier WHERE priority = 1")
+	for _,v in pairs(data) do
+		table.insert(items, {identifier = v.identifier, fullname = v.firstname .. " " .. v.lastname})
+	end
+	return items
+end
+
+function addToPriorityList(steamID)
+	MySQL.Sync.execute("UPDATE rocade SET priority = 1 WHERE identifier = @identifier",{['@identifier'] = steamID})
+end
+
+function removeFromPriorityList(steamID)
+	MySQL.Sync.execute("UPDATE rocade SET priority = 0 WHERE identifier = @identifier",{['@identifier'] = steamID})
+end
+
+function checkIsInPriorityList(steamID)
+	local data = MySQL.Sync.fetchScalar("SELECT priority FROM rocade WHERE identifier = @identifier",{['@identifier'] = steamID})
+	return data
+end
+
+function setWaiting(steamID, name, start)
+	MySQL.Sync.execute("REPLACE INTO rocade (identifier, name, waiting, place) VALUES (@identifier, @name, 1, @place)",{['@identifier'] = steamID, ['@name'] = name, ['@place'] = start})
+	MySQL.Async.execute("SET @value := 0; UPDATE rocade SET place = ( SELECT @value := @value + 1 ) WHERE place is not NULL ORDER BY place ASC;")
+end
+
+function removeWaiting(steamID, name, start)
+	MySQL.Sync.execute("UPDATE rocade SET waiting = 0 WHERE identifier = @identifier",{['@identifier'] = steamID})
+	MySQL.Async.execute("SET @value := 0; UPDATE rocade SET place = ( SELECT @value := @value + 1 ) WHERE place is not NULL ORDER BY place ASC;")
+end
+
+function getWaiting()
+	local items = {}
+	local data = MySQL.Sync.fetchAll("SELECT rocade.identifier, firstname, lastname, place, waiting FROM rocade INNER JOIN users ON users.identifier = rocade.identifier WHERE waiting = 1")
+	for _,v in pairs(data) do
+		table.insert(items, {identifier = v.identifier, fullname = v.firstname .. " " .. v.lastname, waiting = v.waiting, place = v.place})
+	end
+	return items
+end
+
+function getWaitingNumber()
+	MySQL.Async.execute("SET @value := 0; UPDATE rocade SET place = ( SELECT @value := @value + 1 ) WHERE place is not NULL ORDER BY place ASC;")
+	local data = MySQL.Sync.fetchScalar("SELECT COUNT(*) AS count FROM rocade WHERE waiting = 1")	
+	return data
+end
 
 TriggerEvent('es:addGroupCommand', 'reloadwl', 'admin', function (source, args, user)
 	loadWhiteList()
@@ -258,7 +324,7 @@ TriggerEvent('es:addGroupCommand', 'addwl', 'admin', function (source, args, use
 		TriggerEvent('esx_whitelistExtended:sendMessage', source, '^1SYSTEM', 'Invalid usage!')
 		return
 	end
-
+	
 	if args[1] == 'hex' then
 		if string.len(args[2]) == 21 then
 			TriggerEvent('esx_whitelistExtended:whitelistUser', source, args[2])
@@ -304,7 +370,7 @@ function ConvertDecToHex(dec)
 	dec = string.format("%x", dec * 256)
 	dec = dec:sub(1, -3)
 	dec = 'steam:1' .. dec
-
+	
 	return dec
 end
 

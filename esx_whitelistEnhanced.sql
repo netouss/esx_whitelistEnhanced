@@ -9,3 +9,13 @@ CREATE TABLE `whitelist` (
 
 	PRIMARY KEY (`identifier`)
 );
+
+CREATE TABLE `rocade` (
+	`identifier` VARCHAR(50) NOT NULL,
+	`name` VARCHAR(50) NOT NULL,
+	`inconnection` TINYINT(4) NOT NULL DEFAULT '0',
+	`waiting` TINYINT(4) NOT NULL DEFAULT '0',
+	`place` INT(11) NULL DEFAULT NULL,
+	`priority` TINYINT(4) NOT NULL DEFAULT '0',
+	PRIMARY KEY (`identifier`)
+);
